@@ -1,0 +1,87 @@
+# .github/workflows/ci.yml
+
+name: 'Node.js CI & Publish'
+
+# Controls when the workflow will run
+on:
+  # Triggers the workflow on push or pull request events but only for the "main" branch
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  # Triggers the publish job when a new release is created
+  release:
+    types: [published]
+
+
+jobs:
+  # This job runs the build and tests
+  build:
+    name: 'Build & Test'
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x] # Use a recent LTS version of Node.js
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+
+      # Sets up the specified version of Node.js
+      - name: 'Use Node.js ${{ matrix.node-version }}'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm' # Enables caching for npm dependencies
+
+      # Installs dependencies using a clean install from the lockfile
+      - name: 'Install dependencies'
+        run: npm ci
+
+      # Compiles TypeScript to JavaScript to ensure there are no type errors
+      - name: 'Build project'
+        run: npm run build
+
+      # (Optional but recommended) Lints the code for style and quality
+      # - name: 'Lint code'
+      #   run: npm run lint
+
+  # This job publishes the package to NPM
+  publish:
+    name: 'Publish to NPM'
+    # This job should only run after the 'build' job is successful
+    needs: build
+    # This job only runs when a new release is published on GitHub
+    if: github.event_name == 'release' && github.event.action == 'published'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 'Checkout repository'
+        uses: actions/checkout@v4
+
+      - name: 'Use Node.js'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          # Sets the registry URL to the official NPM registry
+          registry-url: 'https://registry.npmjs.org/'
+          cache: 'npm'
+      
+      - name: 'Install dependencies'
+        run: npm ci
+
+      - name: 'Build project'
+        run: npm run build
+
+      # Publishes the package to NPM using the secret token
+      - name: 'Publish to NPM'
+        run: npm publish
+        env:
+          # Use the secret token stored in GitHub repository settings
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
