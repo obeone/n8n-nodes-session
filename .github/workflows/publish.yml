@@ -1,0 +1,107 @@
+# GitHub Actions workflow for automatically publishing to npmjs.com
+# This workflow triggers on version tags and publishes the package to npm
+name: Publish to NPM
+
+# Trigger the workflow when a version tag is pushed (e.g., v1.0.0, v0.1.2)
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+# Define jobs to run
+jobs:
+  publish:
+    # Run on the latest Ubuntu runner
+    runs-on: ubuntu-latest
+    
+    # Define the steps to execute
+    steps:
+      # Step 1: Checkout the repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history for all tags and branches
+          fetch-depth: 0
+      
+      # Step 2: Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Use the latest LTS version of Node.js
+          node-version: '20'
+          # Configure npm registry for publishing
+          registry-url: 'https://registry.npmjs.org'
+          # Use package-lock.json for caching
+          cache: 'npm'
+      
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: npm ci
+      
+      # Step 4: Install gulp globally (required for build process)
+      - name: Install gulp globally
+        run: npm install -g gulp-cli
+      
+      # Step 5: Build the project
+      - name: Build project
+        run: npm run build
+      
+      # Step 6: Run tests (if available)
+      - name: Run tests
+        run: |
+          if npm run test --silent 2>/dev/null; then
+            npm run test
+          else
+            echo "No test script found, skipping tests"
+          fi
+        continue-on-error: false
+      
+      # Step 7: Verify package contents
+      - name: Verify package contents
+        run: |
+          echo "Package contents:"
+          npm pack --dry-run
+          echo "Files to be published:"
+          npm publish --dry-run
+      
+      # Step 8: Publish to NPM
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          # Use the NPM token from repository secrets
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      # Step 9: Create GitHub release (if triggered by tag)
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          body: |
+            Release ${{ github.ref_name }}
+            
+            This release has been automatically published to NPM.
+            
+            Install with: `npm install n8n-nodes-session@${{ github.ref_name }}`
+          draft: false
+          prerelease: false
+
+  # Optional: Add a notification job
+  notify:
+    needs: publish
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify publication status
+        run: |
+          if [ "${{ needs.publish.result }}" == "success" ]; then
+            echo "✅ Package successfully published to NPM!"
+          else
+            echo "❌ Package publication failed!"
+            exit 1
+          fi

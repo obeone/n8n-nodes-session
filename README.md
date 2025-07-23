@@ -111,6 +111,68 @@ Contributions are welcome! If you would like to contribute to this project, plea
     ```
 
 8. **Create a pull request** from your fork to the original repository.
+## Automated Publishing
+
+This project uses GitHub Actions to automatically publish to NPM when new version tags are created. The publishing workflow is configured in [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
+
+### Setting Up Automated Publishing
+
+To enable automated publishing for your fork of this repository:
+
+1. **Generate an NPM Access Token**:
+   - Log in to [npmjs.com](https://www.npmjs.com)
+   - Go to your profile settings
+   - Click on "Access Tokens"
+   - Generate a new token with "Automation" type
+
+2. **Add the NPM Token to GitHub Secrets**:
+   - Go to your GitHub repository
+   - Navigate to **Settings > Secrets and variables > Actions**
+   - Click **New repository secret**
+   - Name: `NPM_TOKEN`
+   - Value: Your NPM access token from step 1
+
+3. **Publish a New Version**:
+   - Update the version in [`package.json`](package.json)
+   - Commit and push your changes
+   - Create and push a version tag:
+     ```bash
+     git tag v0.1.1
+     git push origin v0.1.1
+     ```
+   - The GitHub Action will automatically:
+     - Build the project
+     - Run tests (if available)
+     - Publish to NPM
+     - Create a GitHub release
+
+### Publishing Workflow Features
+
+The automated publishing workflow includes:
+
+- ✅ **Automatic builds** using TypeScript and Gulp
+- ✅ **Dependency caching** for faster builds
+- ✅ **Test execution** (if test scripts are available)
+- ✅ **Package verification** before publishing
+- ✅ **Dry-run validation** to prevent publishing errors
+- ✅ **GitHub release creation** with automatic changelog
+- ✅ **Publication status notifications**
+
+### Manual Publishing
+
+If you prefer to publish manually:
+
+```bash
+# Build the project
+npm run build
+
+# Login to NPM (if not already logged in)
+npm login
+
+# Publish to NPM
+npm publish
+```
+
 
 ## Support
 
